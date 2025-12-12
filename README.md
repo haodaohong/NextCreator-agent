@@ -48,6 +48,15 @@
 - **macOS (Intel)**: `NextCreator_*_x64.dmg`
 - **Windows**: `NextCreator_*_x64-setup.exe`
 
+### macOS 安装提示
+
+由于应用未经 Apple 签名，首次打开可能会提示"无法验证开发者"。请在终端执行以下命令解决：
+
+```bash
+xattr -rc "/Applications/NextCreator.app"
+codesign --force --deep --sign - "/Applications/NextCreator.app"
+```
+
 ## 使用流程
 
 1. **配置供应商** - 点击右上角「供应商管理」，添加 API 供应商（如 OpenAI、Google Gemini 等）
