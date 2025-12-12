@@ -135,7 +135,7 @@ export function Toolbar({ onOpenHelp }: { onOpenHelp?: () => void }) {
           <img src={logoImage} alt="NextCreator" className="w-8 h-8" />
           <span className="font-semibold text-lg">NextCreator</span>
         </div>
-        <div className="badge badge-ghost badge-sm">v0.1.0</div>
+        <div className="badge badge-ghost badge-sm">v0.1.1</div>
       </div>
 
       {/* 中间工具 */}

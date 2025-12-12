@@ -1,6 +1,6 @@
 [package]
 name = "nextcreator"
-version = "0.1.0"
+version = "0.1.1"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -31,4 +31,3 @@ reqwest = { version = "0.12", features = ["json"] }
 tokio = { version = "1", features = ["full"] }
 image = "0.25"
 tauri-plugin-store = "2.4.1"
-
