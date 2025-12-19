@@ -1,5 +1,22 @@
 import type { Node, Edge } from "@xyflow/react";
 
+// 详细错误信息结构
+export interface ErrorDetails {
+  name?: string;           // 错误名称（如 API_Error, NetworkError）
+  message: string;         // 错误消息
+  stack?: string;          // 堆栈信息
+  cause?: unknown;         // 错误原因
+  statusCode?: number;     // HTTP 状态码
+  requestUrl?: string;     // 请求路径
+  requestBody?: unknown;   // 请求体
+  responseHeaders?: Record<string, string>;  // 响应头
+  responseBody?: unknown;  // 响应内容
+  timestamp?: string;      // 错误发生时间
+  nodeId?: string;         // 发生错误的节点 ID
+  model?: string;          // 使用的模型
+  provider?: string;       // 使用的供应商
+}
+
 // 模型类型（图片生成）- 支持自定义模型名称
 export type ModelType = string;
 
@@ -48,6 +65,7 @@ export interface VideoGenerationResponse {
   status?: VideoTaskResponse["status"];
   progress?: number;
   error?: string;
+  errorDetails?: ErrorDetails;  // 详细错误信息
 }
 
 // 图片生成参数
@@ -69,6 +87,7 @@ export interface GenerationResponse {
   imageData?: string; // base64 编码的图片数据
   text?: string;
   error?: string;
+  errorDetails?: ErrorDetails;  // 详细错误信息
 }
 
 // 节点数据类型 - 添加索引签名以满足 React Flow 的 Record<string, unknown> 约束
@@ -88,6 +107,7 @@ export interface ImageGeneratorNodeData {
   outputImage?: string;     // 仍保留 base64 用于向后兼容
   outputImagePath?: string; // 新增：文件系统路径
   error?: string;
+  errorDetails?: ErrorDetails;  // 详细错误信息
 }
 
 export interface ImageInputNodeData {
@@ -116,6 +136,7 @@ export interface VideoGeneratorNodeData {
   progress?: number;
   outputVideo?: string; // 视频 URL
   error?: string;
+  errorDetails?: ErrorDetails;  // 详细错误信息
 }
 
 // LLM 内容生成节点数据
@@ -129,6 +150,7 @@ export interface LLMContentNodeData {
   status: "idle" | "loading" | "success" | "error";
   outputContent?: string;
   error?: string;
+  errorDetails?: ErrorDetails;  // 详细错误信息
 }
 
 // 文件上传节点数据

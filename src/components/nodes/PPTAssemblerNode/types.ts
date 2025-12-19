@@ -1,4 +1,5 @@
 // PPT 组装节点类型定义
+import type { ErrorDetails } from "@/types";
 
 // PPT 页面数据（从上游接收）
 export interface PPTPageData {
@@ -30,6 +31,7 @@ export interface PPTAssemblerNodeData {
   // 状态
   status: "idle" | "generating" | "processing" | "ready" | "error";
   error?: string;
+  errorDetails?: ErrorDetails;  // 详细错误信息
 
   // === 可编辑导出功能 ===
   // 导出模式：

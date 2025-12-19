@@ -32,6 +32,7 @@ import { downloadPPT, downloadScripts, downloadBackgroundPPT } from "./pptBuilde
 import { useLoadingDots } from "@/hooks/useLoadingDots";
 import type { PPTContentNodeData } from "../PPTContentNode/types";
 import { ImagePreviewModal } from "@/components/ui/ImagePreviewModal";
+import { ErrorDetailModal } from "@/components/ui/ErrorDetailModal";
 import {
   processPageForEditable,
   testOcrConnection,
@@ -79,6 +80,9 @@ export const PPTAssemblerNode = memo(({ id, data, selected }: NodeProps<PPTAssem
   const [inpaintTestStatus, setInpaintTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
   const [ocrTestMessage, setOcrTestMessage] = useState("");
   const [inpaintTestMessage, setInpaintTestMessage] = useState("");
+
+  // 错误详情弹窗
+  const [showErrorDetail, setShowErrorDetail] = useState(false);
 
   // 处理控制
   const isProcessingRef = useRef(false);
@@ -775,9 +779,13 @@ export const PPTAssemblerNode = memo(({ id, data, selected }: NodeProps<PPTAssem
 
           {/* 错误信息 */}
           {data.status === "error" && data.error && (
-            <div className="flex items-center gap-2 text-error text-xs">
-              <AlertCircle className="w-3 h-3 flex-shrink-0" />
-              <span className="truncate">{data.error}</span>
+            <div
+              className="flex items-start gap-2 text-error text-xs bg-error/10 p-2 rounded cursor-pointer hover:bg-error/20 transition-colors"
+              onClick={() => setShowErrorDetail(true)}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <AlertCircle className="w-3 h-3 flex-shrink-0 mt-0.5" />
+              <span className="line-clamp-3 break-all">{data.error}</span>
             </div>
           )}
         </div>
@@ -1443,6 +1451,16 @@ docker-compose up -d`}
               : currentPageData.image
           }
           onClose={() => setShowFullPreview(false)}
+        />
+      )}
+
+      {/* 错误详情弹窗 */}
+      {showErrorDetail && data.error && (
+        <ErrorDetailModal
+          error={data.error}
+          errorDetails={data.errorDetails}
+          title="执行错误"
+          onClose={() => setShowErrorDetail(false)}
         />
       )}
     </>

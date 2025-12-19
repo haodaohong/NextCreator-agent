@@ -7,6 +7,7 @@ import { useCanvasStore } from "@/stores/canvasStore";
 import { createVideoTask, getVideoContentBlobUrl, downloadVideo, type VideoTaskStage } from "@/services/videoService";
 import { taskManager } from "@/services/taskManager";
 import { useLoadingDots } from "@/hooks/useLoadingDots";
+import { ErrorDetailModal } from "@/components/ui/ErrorDetailModal";
 import type { VideoGeneratorNodeData, VideoModelType, VideoSizeType } from "@/types";
 
 // 定义节点类型
@@ -64,6 +65,8 @@ export const VideoGeneratorNode = memo(({ id, data, selected }: NodeProps<VideoG
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showErrorDetail, setShowErrorDetail] = useState(false);
+  const [errorToShow, setErrorToShow] = useState<string | null>(null);
 
   // 省略号加载动画
   const dots = useLoadingDots(data.status === "loading" || previewState === "loading" || isDownloading);
@@ -169,6 +172,7 @@ export const VideoGeneratorNode = memo(({ id, data, selected }: NodeProps<VideoG
         updateNodeData<VideoGeneratorNodeData>(id, {
           status: "error",
           error: createResult.error || "创建任务失败",
+          errorDetails: createResult.errorDetails,
           taskStage: "failed",
         });
         return;
@@ -320,17 +324,31 @@ export const VideoGeneratorNode = memo(({ id, data, selected }: NodeProps<VideoG
 
           {/* 错误信息 */}
           {data.status === "error" && data.error && (
-            <div className="flex items-center gap-1 text-error text-xs">
-              <AlertCircle className="w-3 h-3 flex-shrink-0" />
-              <span className="truncate">{data.error}</span>
+            <div
+              className="flex items-start gap-1 text-error text-xs bg-error/10 p-2 rounded cursor-pointer hover:bg-error/20 transition-colors"
+              onClick={() => {
+                setErrorToShow(data.error!);
+                setShowErrorDetail(true);
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <AlertCircle className="w-3 h-3 flex-shrink-0 mt-0.5" />
+              <span className="line-clamp-3 break-all">{data.error}</span>
             </div>
           )}
 
           {/* 预览加载错误 */}
           {previewError && (
-            <div className="flex items-center gap-1 text-error text-xs">
-              <AlertCircle className="w-3 h-3 flex-shrink-0" />
-              <span className="truncate">{previewError}</span>
+            <div
+              className="flex items-start gap-1 text-error text-xs bg-error/10 p-2 rounded cursor-pointer hover:bg-error/20 transition-colors"
+              onClick={() => {
+                setErrorToShow(previewError);
+                setShowErrorDetail(true);
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <AlertCircle className="w-3 h-3 flex-shrink-0 mt-0.5" />
+              <span className="line-clamp-3 break-all">{previewError}</span>
             </div>
           )}
 
@@ -421,6 +439,19 @@ export const VideoGeneratorNode = memo(({ id, data, selected }: NodeProps<VideoG
           videoUrl={previewUrl}
           taskId={data.taskId}
           onClose={handleClosePreview}
+        />
+      )}
+
+      {/* 错误详情弹窗 */}
+      {showErrorDetail && errorToShow && (
+        <ErrorDetailModal
+          error={errorToShow}
+          errorDetails={data.errorDetails}
+          title="执行错误"
+          onClose={() => {
+            setShowErrorDetail(false);
+            setErrorToShow(null);
+          }}
         />
       )}
     </>

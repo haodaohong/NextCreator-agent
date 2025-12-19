@@ -224,6 +224,7 @@ async function executeImageGeneratorNode(
       updateNodeDataWithCanvas<ImageGeneratorNodeData>(node.id, canvasId, {
         status: "error",
         error: response.error,
+        errorDetails: response.errorDetails,
       });
       return { success: false, error: response.error };
     }
@@ -329,6 +330,7 @@ async function executeLLMContentNode(
       updateNodeDataWithCanvas<LLMContentNodeData>(node.id, canvasId, {
         status: "error",
         error: response.error,
+        errorDetails: response.errorDetails,
       });
       return { success: false, error: response.error };
     }

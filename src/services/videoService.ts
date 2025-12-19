@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { VideoGenerationParams, VideoGenerationResponse } from "@/types";
+import type { VideoGenerationParams, VideoGenerationResponse, ErrorDetails } from "@/types";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { isTauriEnvironment } from "@/services/fileStorageService";
 import { toast } from "@/stores/toastStore";
@@ -70,7 +70,55 @@ function getApiConfig() {
   return {
     apiKey: provider.apiKey,
     baseUrl,
+    name: provider.name,
   };
+}
+
+// 构建详细错误信息
+function buildErrorDetails(
+  error: unknown,
+  params: {
+    model?: string;
+    provider?: string;
+    requestUrl?: string;
+    requestBody?: unknown;
+  }
+): ErrorDetails {
+  const now = new Date().toISOString();
+  const isError = error instanceof Error;
+
+  // 解析错误消息，尝试提取状态码
+  const message = isError ? error.message : String(error);
+  const statusCodeMatch = message.match(/\((\d{3})\)/);
+  const statusCode = statusCodeMatch ? parseInt(statusCodeMatch[1], 10) : undefined;
+
+  const details: ErrorDetails = {
+    name: isError ? error.name : "Error",
+    message,
+    stack: isError ? error.stack : undefined,
+    cause: isError && "cause" in error ? error.cause : undefined,
+    statusCode,
+    timestamp: now,
+    model: params.model || "未知",
+    provider: params.provider || "未知",
+    requestUrl: params.requestUrl || "未知",
+    requestBody: params.requestBody,
+  };
+
+  // 尝试提取响应内容
+  const responseMatch = message.match(/API 返回错误\s*\(\d{3}\)[：:]\s*([\s\S]*)/);
+  if (responseMatch) {
+    const responseContent = responseMatch[1].trim();
+    try {
+      details.responseBody = JSON.parse(responseContent);
+    } catch {
+      if (responseContent) {
+        details.responseBody = responseContent;
+      }
+    }
+  }
+
+  return details;
 }
 
 // 创建视频生成任务
@@ -89,7 +137,20 @@ export async function createVideoTask(
       return { error: "此功能仅在桌面应用中可用" };
     }
 
-    const { apiKey, baseUrl } = getApiConfig();
+    const config = getApiConfig();
+    const { apiKey, baseUrl, name: providerName } = config;
+
+    // 构建完整的请求 URL
+    const fullRequestUrl = `${baseUrl}/v1/video/generations`;
+
+    // 构建请求体信息（用于错误诊断）
+    const requestBody = {
+      model: params.model,
+      prompt: params.prompt.slice(0, 500),
+      seconds: params.seconds,
+      size: params.size,
+      hasInputImage: !!params.inputImage,
+    };
 
     const tauriParams: TauriVideoCreateParams = {
       baseUrl,
@@ -119,7 +180,16 @@ export async function createVideoTask(
     }
 
     if (!result.success) {
-      return { error: result.error || "创建任务失败" };
+      const errorMessage = result.error || "创建任务失败";
+      return {
+        error: errorMessage,
+        errorDetails: buildErrorDetails(new Error(errorMessage), {
+          model: params.model,
+          provider: providerName,
+          requestUrl: fullRequestUrl,
+          requestBody,
+        }),
+      };
     }
 
     return {
@@ -129,7 +199,22 @@ export async function createVideoTask(
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "创建视频任务失败";
-    return { error: message };
+    const config = getApiConfig();
+
+    return {
+      error: message,
+      errorDetails: buildErrorDetails(error, {
+        model: params.model,
+        provider: config.name,
+        requestUrl: `${config.baseUrl}/v1/video/generations`,
+        requestBody: {
+          model: params.model,
+          prompt: params.prompt.slice(0, 500),
+          seconds: params.seconds,
+          size: params.size,
+        },
+      }),
+    };
   }
 }
 

@@ -8,6 +8,7 @@ import { useCanvasStore } from "@/stores/canvasStore";
 import { generateLLMContent } from "@/services/llmService";
 import { useLoadingDots } from "@/hooks/useLoadingDots";
 import { useLLMPresetModels } from "@/config/presetModels";
+import { ErrorDetailModal } from "@/components/ui/ErrorDetailModal";
 import type { LLMContentNodeData } from "@/types";
 
 // 定义节点类型
@@ -17,6 +18,7 @@ export const LLMContentNode = memo(({ id, data, selected }: NodeProps<LLMContent
   const { updateNodeData, getConnectedInputData, getConnectedFilesWithInfo, getConnectedImagesWithInfo, getEmptyConnectedInputs } = useFlowStore();
   const [copied, setCopied] = useState(false);
   const [showFullPreview, setShowFullPreview] = useState(false);
+  const [showErrorDetail, setShowErrorDetail] = useState(false);
   const [isPreviewVisible, setIsPreviewVisible] = useState(false);
   const [isPreviewClosing, setIsPreviewClosing] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -164,11 +166,13 @@ export const LLMContentNode = memo(({ id, data, selected }: NodeProps<LLMContent
           status: "success",
           outputContent: response.content,
           error: undefined,
+          errorDetails: undefined,
         });
       } else if (response.error) {
         updateNodeDataWithCanvas(id, {
           status: "error",
           error: response.error,
+          errorDetails: response.errorDetails,
         });
       } else {
         updateNodeDataWithCanvas(id, {
@@ -329,9 +333,13 @@ export const LLMContentNode = memo(({ id, data, selected }: NodeProps<LLMContent
 
         {/* 错误信息 */}
         {data.status === "error" && data.error && (
-          <div className="flex items-center gap-2 text-error text-xs">
-            <AlertCircle className="w-3 h-3 flex-shrink-0" />
-            <span className="truncate">{data.error}</span>
+          <div
+            className="flex items-start gap-2 text-error text-xs bg-error/10 p-2 rounded cursor-pointer hover:bg-error/20 transition-colors"
+            onClick={() => setShowErrorDetail(true)}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <AlertCircle className="w-3 h-3 flex-shrink-0 mt-0.5" />
+            <span className="line-clamp-3 break-all">{data.error}</span>
           </div>
         )}
 
@@ -453,6 +461,16 @@ export const LLMContentNode = memo(({ id, data, selected }: NodeProps<LLMContent
           </div>
         </div>,
         document.body
+      )}
+
+      {/* 错误详情弹窗 */}
+      {showErrorDetail && data.error && (
+        <ErrorDetailModal
+          error={data.error}
+          errorDetails={data.errorDetails}
+          title="执行错误"
+          onClose={() => setShowErrorDetail(false)}
+        />
       )}
     </div>
   );

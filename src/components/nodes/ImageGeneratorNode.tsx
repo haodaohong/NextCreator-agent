@@ -6,6 +6,7 @@ import { useCanvasStore } from "@/stores/canvasStore";
 import { generateImage, editImage } from "@/services/imageService";
 import { saveImage, getImageUrl, isTauriEnvironment } from "@/services/fileStorageService";
 import { ImagePreviewModal } from "@/components/ui/ImagePreviewModal";
+import { ErrorDetailModal } from "@/components/ui/ErrorDetailModal";
 import { ModelSelector } from "@/components/ui/ModelSelector";
 import { useLoadingDots } from "@/hooks/useLoadingDots";
 import type { ImageGeneratorNodeData, ModelType } from "@/types";
@@ -61,6 +62,7 @@ function ImageGeneratorBase({
 }: NodeProps<ImageGeneratorNode> & { isPro: boolean }) {
   const { updateNodeData, getConnectedInputData, getEmptyConnectedInputs } = useFlowStore();
   const [showPreview, setShowPreview] = useState(false);
+  const [showErrorDetail, setShowErrorDetail] = useState(false);
 
   // 省略号加载动画
   const dots = useLoadingDots(data.status === "loading");
@@ -206,6 +208,7 @@ function ImageGeneratorBase({
         updateNodeDataWithCanvas(id, {
           status: "error",
           error: response.error,
+          errorDetails: response.errorDetails,
         });
       } else {
         updateNodeDataWithCanvas(id, {
@@ -377,9 +380,13 @@ function ImageGeneratorBase({
 
           {/* 错误信息 */}
           {data.status === "error" && data.error && (
-            <div className="flex items-center gap-2 text-error text-xs">
-              <AlertCircle className="w-3 h-3 flex-shrink-0" />
-              <span className="truncate">{data.error}</span>
+            <div
+              className="flex items-start gap-2 text-error text-xs bg-error/10 p-2 rounded cursor-pointer hover:bg-error/20 transition-colors"
+              onClick={() => setShowErrorDetail(true)}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <AlertCircle className="w-3 h-3 flex-shrink-0 mt-0.5" />
+              <span className="line-clamp-3 break-all">{data.error}</span>
             </div>
           )}
 
@@ -423,6 +430,16 @@ function ImageGeneratorBase({
           imageData={data.outputImage}
           imagePath={data.outputImagePath}
           onClose={() => setShowPreview(false)}
+        />
+      )}
+
+      {/* 错误详情弹窗 */}
+      {showErrorDetail && data.error && (
+        <ErrorDetailModal
+          error={data.error}
+          errorDetails={data.errorDetails}
+          title="执行错误"
+          onClose={() => setShowErrorDetail(false)}
         />
       )}
     </>

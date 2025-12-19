@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { LLMModelType, Provider } from "@/types";
+import type { LLMModelType, Provider, ErrorDetails } from "@/types";
 import { useSettingsStore } from "@/stores/settingsStore";
 
 // LLM 节点类型
@@ -25,6 +25,7 @@ export interface LLMGenerationParams {
 export interface LLMResponse {
   content?: string;
   error?: string;
+  errorDetails?: ErrorDetails;  // 详细错误信息
 }
 
 // Tauri 后端请求参数
@@ -96,12 +97,65 @@ function getBaseUrlByProtocol(baseUrl: string, protocol: string): string {
   }
 }
 
+// 构建详细错误信息
+function buildErrorDetails(
+  error: unknown,
+  params: {
+    model?: string;
+    provider?: string;
+    requestUrl?: string;
+    requestBody?: unknown;
+  }
+): ErrorDetails {
+  const now = new Date().toISOString();
+  const isError = error instanceof Error;
+
+  // 解析错误消息，尝试提取状态码
+  const message = isError ? error.message : String(error);
+  const statusCodeMatch = message.match(/\((\d{3})\)/);
+  const statusCode = statusCodeMatch ? parseInt(statusCodeMatch[1], 10) : undefined;
+
+  return {
+    name: isError ? error.name : "Error",
+    message,
+    stack: isError ? error.stack : undefined,
+    cause: isError && "cause" in error ? error.cause : undefined,
+    statusCode,
+    timestamp: now,
+    model: params.model || "未知",
+    provider: params.provider || "未知",
+    requestUrl: params.requestUrl || "未知",
+    requestBody: params.requestBody,
+  };
+}
+
 // 通过 Tauri 后端代理发送 LLM 请求
 async function invokeLLMByProtocol(params: TauriLLMParams, provider: Provider): Promise<LLMResponse> {
   const protocol = provider.protocol || "google";
   const command = getCommandByProtocol(protocol);
 
   console.log(`[llmService] invokeLLMByProtocol called, protocol: ${protocol}, command: ${command}`);
+
+  // 根据协议构建完整的请求 URL
+  let fullRequestUrl = params.baseUrl;
+  if (protocol === "openai") {
+    fullRequestUrl = `${params.baseUrl}/v1/chat/completions`;
+  } else if (protocol === "claude") {
+    fullRequestUrl = `${params.baseUrl}/v1/messages`;
+  } else if (protocol === "google") {
+    fullRequestUrl = `${params.baseUrl}/models/${params.model}:generateContent`;
+  }
+
+  // 构建完整的请求体（用于错误诊断）
+  const requestBody = {
+    model: params.model,
+    prompt: params.prompt.slice(0, 500),  // 保留前 500 字符
+    systemPrompt: params.systemPrompt ? params.systemPrompt.slice(0, 200) : undefined,
+    temperature: params.temperature,
+    maxTokens: params.maxTokens,
+    filesCount: params.files?.length || 0,
+    hasJsonSchema: !!params.responseJsonSchema,
+  };
 
   try {
     const startTime = Date.now();
@@ -111,14 +165,32 @@ async function invokeLLMByProtocol(params: TauriLLMParams, provider: Provider): 
     console.log("[llmService] Tauri backend response received in", elapsed, "ms");
 
     if (!result.success) {
-      return { error: result.error || "请求失败" };
+      const errorMessage = result.error || "请求失败";
+
+      return {
+        error: errorMessage,
+        errorDetails: buildErrorDetails(new Error(errorMessage), {
+          model: params.model,
+          provider: provider.name,
+          requestUrl: fullRequestUrl,
+          requestBody,
+        }),
+      };
     }
 
     return { content: result.content };
   } catch (error) {
     console.error("[llmService] Tauri invoke error:", error);
     const message = error instanceof Error ? error.message : String(error);
-    return { error: message };
+    return {
+      error: message,
+      errorDetails: buildErrorDetails(error, {
+        model: params.model,
+        provider: provider.name,
+        requestUrl: fullRequestUrl,
+        requestBody,
+      }),
+    };
   }
 }
 
@@ -148,7 +220,12 @@ export async function generateText(params: LLMGenerationParams): Promise<LLMResp
     return await invokeLLMByProtocol(requestParams, provider);
   } catch (error) {
     const message = error instanceof Error ? error.message : "生成失败";
-    return { error: message };
+    return {
+      error: message,
+      errorDetails: buildErrorDetails(error, {
+        model: params.model,
+      }),
+    };
   }
 }
 
@@ -178,7 +255,12 @@ export async function generateLLMContent(params: LLMGenerationParams): Promise<L
     return await invokeLLMByProtocol(requestParams, provider);
   } catch (error) {
     const message = error instanceof Error ? error.message : "生成失败";
-    return { error: message };
+    return {
+      error: message,
+      errorDetails: buildErrorDetails(error, {
+        model: params.model,
+      }),
+    };
   }
 }
 
