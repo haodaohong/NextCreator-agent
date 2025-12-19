@@ -891,17 +891,22 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
         }
       } else if (targetHandle === "input-image") {
         // 从 image 输入端口连接的数据（支持多图）
+        // 同时检查 imageData 和 imagePath，任一有值则表示有图片
+        let hasImage = false;
         let imageData: string | undefined;
         if (sourceNode.type === "imageInputNode") {
-          const data = sourceNode.data as { imageData?: string };
+          const data = sourceNode.data as { imageData?: string; imagePath?: string };
           imageData = data.imageData;
+          hasImage = !!(data.imageData || data.imagePath);
         } else if (sourceNode.type === "imageGeneratorProNode" || sourceNode.type === "imageGeneratorFastNode") {
           // 支持从图片生成节点获取输出图片
-          const data = sourceNode.data as { outputImage?: string };
+          const data = sourceNode.data as { outputImage?: string; outputImagePath?: string };
           imageData = data.outputImage;
+          hasImage = !!(data.outputImage || data.outputImagePath);
         }
-        if (imageData) {
-          images.push(imageData);
+        if (hasImage) {
+          // 使用实际数据或占位值（同步版本可能没有 base64 数据）
+          images.push(imageData || "");
         }
       } else if (targetHandle === "input-file") {
         // 从 file 输入端口连接的数据（支持多文件）
@@ -925,14 +930,16 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
           const data = sourceNode.data as { outputContent?: string };
           prompt = data.outputContent;
         } else if (sourceNode.type === "imageInputNode") {
-          const data = sourceNode.data as { imageData?: string };
-          if (data.imageData) {
-            images.push(data.imageData);
+          const data = sourceNode.data as { imageData?: string; imagePath?: string };
+          // 同时检查 imageData 和 imagePath
+          if (data.imageData || data.imagePath) {
+            images.push(data.imageData || "");
           }
         } else if (sourceNode.type === "imageGeneratorProNode" || sourceNode.type === "imageGeneratorFastNode") {
-          const data = sourceNode.data as { outputImage?: string };
-          if (data.outputImage) {
-            images.push(data.outputImage);
+          const data = sourceNode.data as { outputImage?: string; outputImagePath?: string };
+          // 同时检查 outputImage 和 outputImagePath
+          if (data.outputImage || data.outputImagePath) {
+            images.push(data.outputImage || "");
           }
         } else if (sourceNode.type === "fileUploadNode") {
           // 文件上传节点的兼容处理
@@ -1074,7 +1081,7 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
     return { prompt, images, files };
   },
 
-  // 获取连接的图片详细信息（包含 ID、文件名、路径）
+  // 获取连接的图片详细信息（包含 ID、文件名、路径）- 同步版本，用于检测连接状态
   getConnectedImagesWithInfo: (nodeId) => {
     const { nodes, edges } = get();
     const incomingEdges = edges.filter((edge) => edge.target === nodeId);
@@ -1091,21 +1098,23 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
       if (targetHandle === "input-image" || !targetHandle) {
         if (sourceNode.type === "imageInputNode") {
           const data = sourceNode.data as { imageData?: string; fileName?: string; imagePath?: string };
-          if (data.imageData) {
+          // 同时检查 imageData 和 imagePath，任一有值则表示有图片
+          if (data.imageData || data.imagePath) {
             images.push({
               id: sourceNode.id,
               fileName: data.fileName || `图片-${sourceNode.id.slice(0, 4)}`,
-              imageData: data.imageData,
+              imageData: data.imageData || "",  // 同步版本可能没有 base64 数据
               imagePath: data.imagePath,
             });
           }
         } else if (sourceNode.type === "imageGeneratorProNode" || sourceNode.type === "imageGeneratorFastNode") {
           const data = sourceNode.data as { outputImage?: string; label?: string; outputImagePath?: string };
-          if (data.outputImage) {
+          // 同时检查 outputImage 和 outputImagePath，任一有值则表示有图片
+          if (data.outputImage || data.outputImagePath) {
             images.push({
               id: sourceNode.id,
               fileName: data.label || `生成-${sourceNode.id.slice(0, 4)}`,
-              imageData: data.outputImage,
+              imageData: data.outputImage || "",  // 同步版本可能没有 base64 数据
               imagePath: data.outputImagePath,
             });
           }
@@ -1229,19 +1238,21 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
 
       const targetHandle = edge.targetHandle;
 
-      // 检测图片输入
+      // 检测图片输入（同时检查 base64 数据和文件路径）
       if (targetHandle === "input-image" || (!targetHandle && sourceNode.type === "imageInputNode")) {
         if (sourceNode.type === "imageInputNode") {
-          const data = sourceNode.data as { imageData?: string; label?: string };
-          if (!data.imageData) {
+          const data = sourceNode.data as { imageData?: string; imagePath?: string; label?: string };
+          // 同时检查 imageData 和 imagePath，任一有值则不为空
+          if (!data.imageData && !data.imagePath) {
             emptyImages.push({
               id: sourceNode.id,
               label: (data.label as string) || "图片输入",
             });
           }
         } else if (sourceNode.type === "imageGeneratorProNode" || sourceNode.type === "imageGeneratorFastNode") {
-          const data = sourceNode.data as { outputImage?: string; label?: string };
-          if (!data.outputImage) {
+          const data = sourceNode.data as { outputImage?: string; outputImagePath?: string; label?: string };
+          // 同时检查 outputImage 和 outputImagePath，任一有值则不为空
+          if (!data.outputImage && !data.outputImagePath) {
             emptyImages.push({
               id: sourceNode.id,
               label: (data.label as string) || "图片生成",
