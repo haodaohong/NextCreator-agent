@@ -29,10 +29,54 @@ export function Toolbar({ onOpenHelp }: { onOpenHelp?: () => void }) {
     setShowClearConfirm(false);
   };
 
+  // 清理节点数据中的 base64 图片，仅保留文件路径
+  const cleanNodeDataForExport = (nodes: ReturnType<typeof useFlowStore.getState>["nodes"]) => {
+    return nodes.map((node) => {
+      const cleanedNode = { ...node, data: { ...node.data } };
+      const data = cleanedNode.data;
+
+      // 清理 ImageInputNode 的 base64 数据
+      if ("imageData" in data && "imagePath" in data) {
+        delete data.imageData;
+      }
+
+      // 清理 ImageGeneratorNode 的 base64 数据
+      if ("outputImage" in data && "outputImagePath" in data) {
+        delete data.outputImage;
+      }
+
+      // 清理 PPTContentNode 的 pages 数据中的 base64
+      if ("pages" in data && Array.isArray(data.pages)) {
+        data.pages = data.pages.map((page: Record<string, unknown>) => {
+          const cleanedPage = { ...page };
+
+          // 清理 result 中的 base64
+          if (cleanedPage.result && typeof cleanedPage.result === "object") {
+            const result = cleanedPage.result as Record<string, unknown>;
+            const cleanedResult = { ...result };
+            if (cleanedResult.imagePath) delete cleanedResult.image;
+            if (cleanedResult.thumbnailPath) delete cleanedResult.thumbnail;
+            cleanedPage.result = cleanedResult;
+          }
+
+          // 清理手动上传图片的 base64
+          if (cleanedPage.manualImagePath) delete cleanedPage.manualImage;
+          if (cleanedPage.manualThumbnailPath) delete cleanedPage.manualThumbnail;
+
+          return cleanedPage;
+        });
+      }
+
+      return cleanedNode;
+    });
+  };
+
   // 导出工作流
   const handleExport = async () => {
     const { nodes, edges } = useFlowStore.getState();
-    const data = { nodes, edges };
+    // 清理 base64 数据，仅保留文件路径（同设备可恢复）
+    const cleanedNodes = cleanNodeDataForExport(nodes);
+    const data = { nodes: cleanedNodes, edges };
     const jsonStr = JSON.stringify(data, null, 2);
     const fileName = `next-workflow-${Date.now()}.json`;
 
