@@ -18,6 +18,7 @@ import {
   LayoutTemplate,
 } from "lucide-react";
 import { useFlowStore } from "@/stores/flowStore";
+import { getImageUrl } from "@/services/fileStorageService";
 import type { PPTContentNodeData, PPTOutline, PPTPageItem, VisualStyleTemplate, ConnectedImageInfo } from "./types";
 import type { ImageInputNodeData } from "@/types";
 import { ConfigTab } from "./ConfigTab";
@@ -106,6 +107,7 @@ export const PPTContentNode = memo(({ id, data, selected }: NodeProps<PPTContent
   }, [id, getConnectedFilesWithInfo]);
 
   // 获取模板基底图（支持多图选择）
+  // 注意：此函数用于同步检查是否有模板图，返回 imageData 或 imagePath
   const getTemplateImage = useCallback(() => {
     const images = getConnectedImages();
     if (images.length === 0) return undefined;
@@ -113,11 +115,12 @@ export const PPTContentNode = memo(({ id, data, selected }: NodeProps<PPTContent
     // 如果有选中的基底图 ID，使用它
     if (data.selectedTemplateId) {
       const selected = images.find(img => img.id === data.selectedTemplateId);
-      if (selected) return selected.imageData;
+      // 返回 imageData 或 imagePath（任一存在即表示有图片）
+      if (selected) return selected.imageData || selected.imagePath;
     }
 
     // 默认使用第一张
-    return images[0]?.imageData;
+    return images[0]?.imageData || images[0]?.imagePath;
   }, [getConnectedImages, data.selectedTemplateId]);
 
   // 选择基底图
@@ -490,7 +493,13 @@ export const PPTContentNode = memo(({ id, data, selected }: NodeProps<PPTContent
                               title={img.fileName || `图片-${img.id.slice(0, 4)}`}
                             >
                               <img
-                                src={`data:image/png;base64,${img.imageData}`}
+                                src={
+                                  img.imagePath
+                                    ? getImageUrl(img.imagePath)
+                                    : img.imageData
+                                      ? `data:image/png;base64,${img.imageData}`
+                                      : undefined
+                                }
                                 alt={img.fileName || "图片"}
                                 className="w-full h-full object-cover"
                               />
